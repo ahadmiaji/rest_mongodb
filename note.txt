@@ -1,0 +1,209 @@
+index.js 
+
+const app = require("./app");
+const config = require("./config/config");
+
+
+const PORT = config.app.port;
+
+app.listen(PORT, () => {
+    console.log(`app is running on http://localhost:${PORT}`);
+});
+
+
+app.js
+
+const express = require ("express");
+const cors = require("cors");
+const userRouter = require("./routes/user.route")
+require("./config/db");
+const app = express();
+
+app.use(cors());
+app.use(express.urlencoded({extended:true}));
+app.use(express.json());
+app.use("/api/users", userRouter);
+
+// api/users : GET
+// api/users/:id : GET
+// api/users/ : POST
+// api/users/:id : PATCH
+// api/users/:id : DELETE
+
+app.get("/",(req,res)=>{
+    res.sendFile(__dirname + "/views/index.html");
+})
+
+app.use( (req,res,next)=>{
+    res.status(404).json({
+        message: "route not found",
+    })
+});
+
+app.use( (err,req,res,next)=>{
+    res.status(500).json({
+        message: "something broke",
+    });
+});
+module.exports=app;
+
+views/index.html
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <h1>Welcome to the server</h1>
+  </body>
+</html>
+
+routes/user.route.js
+
+const express = require ("express");
+const router = express.Router();
+
+const { getAllUsers, getOneUser,createUser, deleteUser, updateUser } = require("../controllers/user.controller");
+
+
+
+
+router.get("/", getAllUsers );
+router.get("/:id", getOneUser);
+router.post("/", createUser);
+router.delete("/:id", deleteUser);
+router.patch("/:id", updateUser);
+
+
+
+
+module.exports =router;
+
+
+models/user.models.js
+
+const mongoose = require("mongoose");
+
+const userSchema = mongoose.Schema({
+  id: {
+    type: String,
+    reuire: true,
+  },
+  productname: {
+    type: String,
+    reuire: true,
+  },
+  partnumber: {
+    type: Number,
+    reuire: true,
+  },
+  createdOn: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+module.exports = mongoose.model("User", userSchema);
+
+controllers/users.controllers.js
+
+const {v4:uuidv4} =require("uuid");
+
+const User = require("../models/user.model");
+
+
+const getAllUsers = async (req, res) => {
+    try {
+      const users = await User.find();
+      res.status(200).json(users);
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  };
+  
+
+const getOneUser = async (req, res) => {
+    try {
+      const user = await User.findOne({ id: req.params.id });
+      res.status(200).json(user);
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  };
+
+  const createUser = async (req, res) => {
+    try {
+      const newUser = new User({
+        id: uuidv4(),
+        name: req.body.name,
+        age: Number(req.body.age),
+      });
+      await newUser.save();
+      res.status(201).json(newUser);
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  };
+
+const updateUser = async (req, res) => {
+    try {
+      const user = await User.findOne({ id: req.params.id });
+      user.name = req.body.name;
+      user.age = Number(req.body.age);
+      await user.save();
+      res.status(200).json(user);
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  };
+
+  const deleteUser = async (req, res) => {
+    try {
+      await User.deleteOne({ id: req.params.id });
+      res.status(200).json({ message: "user is deleted" });
+    } catch (error) {
+      res.status(500).send(error.message);
+    }
+  };
+
+
+module.exports = {getAllUsers, getOneUser, createUser ,updateUser, deleteUser};
+
+
+
+//config/config.js 
+
+require("dotenv").config();
+
+const dev ={
+    app:{
+        port : process.env.PORT || 5002
+    },
+
+    db:{
+        url: process.env.DB_URL || "mongodb://localhost:27017/RestDB",
+    },
+};
+
+module.exports= dev;
+
+config/db.js 
+
+const mongoose = require("mongoose");
+const config = require("./config");
+
+const dbURL = config.db.url;
+mongoose.set('strictQuery', true);
+mongoose.connect(dbURL)
+.then(()=>{
+    console.log('mongodb compass is connected');
+})
+.catch((error)=>{
+    console.log(error);
+    process.exit(1);
+});
+
